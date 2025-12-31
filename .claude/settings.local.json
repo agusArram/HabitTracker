@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.gradlew.bat assembleDebug)",
+      "Bash(cmd /c \"dir gradlew.bat\")",
+      "Bash(cmd /c \"gradlew.bat assembleDebug\")",
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(./gradlew:*)",
+      "Bash(java -version:*)",
+      "Bash(where java)",
+      "Bash(cmd /c \"dir C:\\\\ /B /AD | findstr /i graal\")",
+      "Bash(ls:*)",
+      "WebFetch(domain:arrambidetech.com)"
+    ]
+  }
+}
