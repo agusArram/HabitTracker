@@ -16,7 +16,9 @@ import java.time.temporal.TemporalAdjusters
 
 data class HabitWithProgress(
     val habit: Habit,
-    val logs: Map<String, Boolean> // date -> completed
+    val logs: Map<String, Boolean>, // date -> completed
+    val currentStreak: Int = 0, // Racha actual
+    val bestStreak: Int = 0 // Mejor racha
 )
 
 data class MonthProgress(
@@ -57,7 +59,16 @@ class HabitViewModel(
             habits.map { habit ->
                 val habitLogs = logsByHabit[habit.id].orEmpty()
                 val logsMap = habitLogs.associate { it.date to it.completed }
-                HabitWithProgress(habit, logsMap)
+
+                // Calcular rachas
+                val streaks = calculateStreaks(habit.id)
+
+                HabitWithProgress(
+                    habit = habit,
+                    logs = logsMap,
+                    currentStreak = streaks.first,
+                    bestStreak = streaks.second
+                )
             }
         }
     }.stateIn(
@@ -65,6 +76,46 @@ class HabitViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
+
+    private suspend fun calculateStreaks(habitId: Long): Pair<Int, Int> {
+        val allLogs = repository.getAllLogsForHabit(habitId)
+            .filter { it.completed }
+            .map { LocalDate.parse(it.date, dateFormatter) }
+            .sortedDescending()
+
+        if (allLogs.isEmpty()) return Pair(0, 0)
+
+        // Calcular racha actual (desde hoy hacia atrás)
+        var currentStreak = 0
+        var checkDate = LocalDate.now()
+
+        for (logDate in allLogs) {
+            if (logDate == checkDate) {
+                currentStreak++
+                checkDate = checkDate.minusDays(1)
+            } else if (logDate < checkDate) {
+                // Hay un hueco, termina la racha
+                break
+            }
+        }
+
+        // Calcular mejor racha histórica
+        var bestStreak = 0
+        var tempStreak = 1
+
+        for (i in 0 until allLogs.size - 1) {
+            val diff = allLogs[i].toEpochDay() - allLogs[i + 1].toEpochDay()
+            if (diff == 1L) {
+                tempStreak++
+                bestStreak = maxOf(bestStreak, tempStreak)
+            } else {
+                tempStreak = 1
+            }
+        }
+        bestStreak = maxOf(bestStreak, tempStreak, currentStreak)
+
+        return Pair(currentStreak, bestStreak)
+    }
 
     val weekProgress: StateFlow<WeekProgress> = habitsWithProgress.map { habits ->
         if (habits.isEmpty()) {
@@ -116,15 +167,34 @@ class HabitViewModel(
         initialValue = MonthProgress(0, 0, 0f)
     )
 
-    fun addHabit(name: String, emoji: String) {
+    fun addHabit(name: String, emoji: String, category: String, color: String) {
         viewModelScope.launch {
-            repository.insertHabit(Habit(name = name, emoji = emoji))
+            repository.insertHabit(
+                Habit(
+                    name = name,
+                    emoji = emoji,
+                    category = category,
+                    color = color
+                )
+            )
         }
     }
 
     fun deleteHabit(habit: Habit) {
         viewModelScope.launch {
             repository.deleteHabit(habit)
+        }
+    }
+
+    fun updateHabit(habit: Habit) {
+        viewModelScope.launch {
+            repository.updateHabit(habit)
+        }
+    }
+
+    fun updateHabitsOrder(habits: List<Habit>) {
+        viewModelScope.launch {
+            repository.updateHabitsOrder(habits)
         }
     }
 

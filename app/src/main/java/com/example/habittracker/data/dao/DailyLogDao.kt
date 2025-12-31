@@ -26,4 +26,7 @@ interface DailyLogDao {
 
     @Query("DELETE FROM daily_logs WHERE habitId = :habitId")
     suspend fun deleteLogsForHabit(habitId: Long)
+
+    @Query("SELECT * FROM daily_logs WHERE habitId = :habitId ORDER BY date DESC")
+    suspend fun getAllLogsForHabit(habitId: Long): List<DailyLog>
 }

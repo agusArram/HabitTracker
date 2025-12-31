@@ -33,4 +33,15 @@ class HabitRepository(
 
     suspend fun getLogForDate(habitId: Long, date: String): DailyLog? =
         dailyLogDao.getLogForDate(habitId, date)
+
+    suspend fun getAllLogsForHabit(habitId: Long): List<DailyLog> =
+        dailyLogDao.getAllLogsForHabit(habitId)
+
+    suspend fun updateHabit(habit: Habit) = habitDao.updateHabit(habit)
+
+    suspend fun updateHabitsOrder(habits: List<Habit>) {
+        habits.forEachIndexed { index, habit ->
+            habitDao.updateHabit(habit.copy(orderPosition = index))
+        }
+    }
 }

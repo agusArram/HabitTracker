@@ -1,12 +1,17 @@
 package com.example.habittracker.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -30,6 +36,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.*
+import kotlin.math.abs
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,7 +53,7 @@ fun HabitTrackerScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
 
-    
+
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
@@ -70,14 +78,15 @@ fun HabitTrackerScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 4.dp),
+                    .padding(top = 12.dp, bottom = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "Habit Tracker - ArrambideTech.com",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    fontSize = 10.sp
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
 
@@ -105,6 +114,9 @@ fun HabitTrackerScreen(
                     },
                     onDeleteHabit = { habit ->
                         viewModel.deleteHabit(habit)
+                    },
+                    onEditHabit = { habit ->
+                        viewModel.updateHabit(habit)
                     }
                 )
             }
@@ -114,8 +126,8 @@ fun HabitTrackerScreen(
     if (showAddDialog) {
         AddHabitDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, emoji ->
-                viewModel.addHabit(name, emoji)
+            onConfirm = { name, emoji, category, color ->
+                viewModel.addHabit(name, emoji, category, color)
                 showAddDialog = false
             }
         )
@@ -134,10 +146,32 @@ fun WeekHeader(
     val monthName = weekStart.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
     val year = weekStart.year
 
+    var totalDrag by remember { mutableFloatStateOf(0f) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(16.dp)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        if (abs(totalDrag) > 100f) {
+                            if (totalDrag > 0) {
+                                onPreviousWeek()
+                            } else {
+                                onNextWeek()
+                            }
+                        }
+                        totalDrag = 0f
+                    },
+                    onDragCancel = {
+                        totalDrag = 0f
+                    },
+                    onHorizontalDrag = { _, dragAmount ->
+                        totalDrag += dragAmount
+                    }
+                )
+            },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -240,7 +274,8 @@ fun HabitGrid(
     habits: List<HabitWithProgress>,
     daysInWeek: List<LocalDate>,
     onDayClick: (Long, String) -> Unit,
-    onDeleteHabit: (com.example.habittracker.data.entity.Habit) -> Unit
+    onDeleteHabit: (com.example.habittracker.data.entity.Habit) -> Unit,
+    onEditHabit: (com.example.habittracker.data.entity.Habit) -> Unit
 ) {
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
@@ -256,15 +291,38 @@ fun HabitGrid(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             items(habits) { habitWithProgress ->
+                var showEditDialog by remember { mutableStateOf(false) }
+
                 HabitRow(
                     habit = habitWithProgress.habit,
                     daysInWeek = daysInWeek,
                     logs = habitWithProgress.logs,
+                    currentStreak = habitWithProgress.currentStreak,
+                    bestStreak = habitWithProgress.bestStreak,
                     onDayClick = { date ->
                         onDayClick(habitWithProgress.habit.id, date.format(dateFormatter))
                     },
-                    onDelete = { onDeleteHabit(habitWithProgress.habit) }
+                    onDelete = { onDeleteHabit(habitWithProgress.habit) },
+                    onLongClick = { showEditDialog = true }
                 )
+
+                if (showEditDialog) {
+                    EditHabitDialog(
+                        habit = habitWithProgress.habit,
+                        onDismiss = { showEditDialog = false },
+                        onConfirm = { name, emoji, category, color ->
+                            onEditHabit(
+                                habitWithProgress.habit.copy(
+                                    name = name,
+                                    emoji = emoji,
+                                    category = category,
+                                    color = color
+                                )
+                            )
+                            showEditDialog = false
+                        }
+                    )
+                }
             }
         }
     }
@@ -324,40 +382,66 @@ fun DayHeaders(daysInWeek: List<LocalDate>) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HabitRow(
     habit: com.example.habittracker.data.entity.Habit,
     daysInWeek: List<LocalDate>,
     logs: Map<String, Boolean>,
+    currentStreak: Int,
+    bestStreak: Int,
     onDayClick: (LocalDate) -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onLongClick: () -> Unit
 ) {
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp, horizontal = 8.dp),
+            .padding(vertical = 2.dp, horizontal = 8.dp)
+            .combinedClickable(
+                onClick = {},
+                onLongClick = onLongClick
+            ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Hábito info
+            // Indicador de color de categoría
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(56.dp)
+                    .background(
+                        try {
+                            Color(android.graphics.Color.parseColor(habit.color))
+                        } catch (e: Exception) {
+                            MaterialTheme.colorScheme.primary
+                        }
+                    )
+            )
+
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.width(120.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Hábito info
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.width(120.dp)
+                ) {
                 if (habit.emoji.isNotEmpty()) {
                     Text(
                         text = habit.emoji,
                         fontSize = 24.sp,
-                        modifier = Modifier.padding(end = 8.dp)
+                        modifier = Modifier.padding(end = 4.dp)
                     )
                 }
                 Column(modifier = Modifier.weight(1f, fill = false)) {
@@ -365,9 +449,37 @@ fun HabitRow(
                         text = habit.name,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
-                        maxLines = 2,
+                        maxLines = 1,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    // Mostrar racha
+                    if (currentStreak > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            Text(
+                                text = "🔥",
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = "$currentStreak",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(start = 2.dp)
+                            )
+                            if (bestStreak > currentStreak) {
+                                Text(
+                                    text = " (récord: $bestStreak)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 9.sp
+                                )
+                            }
+                        }
+                    }
                 }
                 IconButton(
                     onClick = onDelete,
@@ -397,6 +509,7 @@ fun HabitRow(
                         modifier = Modifier.weight(1f)
                     )
                 }
+            }
             }
         }
     }
@@ -468,10 +581,12 @@ fun EmptyState() {
 @Composable
 fun AddHabitDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String, String) -> Unit
+    onConfirm: (String, String, String, String) -> Unit // name, emoji, category, color
 ) {
     var name by remember { mutableStateOf("") }
     var emoji by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf(com.example.habittracker.data.model.HabitCategory.PERSONAL) }
+    var expanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -506,18 +621,204 @@ fun AddHabitDialog(
                         focusedLabelColor = MaterialTheme.colorScheme.primary
                     )
                 )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Categoría",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Selector de categorías con chips en 2 columnas
+                val categories = com.example.habittracker.data.model.HabitCategory.values().toList()
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    categories.chunked(2).forEach { rowCategories ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            rowCategories.forEach { category ->
+                                FilterChip(
+                                    selected = selectedCategory == category,
+                                    onClick = { selectedCategory = category },
+                                    label = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(vertical = 2.dp)
+                                        ) {
+                                            Text(category.emoji, fontSize = 14.sp)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = category.displayName,
+                                                fontSize = 11.sp,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = category.color.copy(alpha = 0.3f),
+                                        selectedLabelColor = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            // Añadir espacio si solo hay un chip en la fila
+                            if (rowCategories.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
                     if (name.isNotBlank()) {
-                        onConfirm(name.trim(), emoji.trim())
+                        onConfirm(
+                            name.trim(),
+                            emoji.trim(),
+                            selectedCategory.displayName,
+                            com.example.habittracker.data.model.HabitCategory.getColorHex(selectedCategory)
+                        )
                     }
                 },
                 enabled = name.isNotBlank()
             ) {
                 Text("Agregar", color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface
+    )
+}
+
+@Composable
+fun EditHabitDialog(
+    habit: com.example.habittracker.data.entity.Habit,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, String, String) -> Unit // name, emoji, category, color
+) {
+    var name by remember { mutableStateOf(habit.name) }
+    var emoji by remember { mutableStateOf(habit.emoji) }
+    var selectedCategory by remember {
+        mutableStateOf(
+            com.example.habittracker.data.model.HabitCategory.fromString(habit.category)
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Editar Hábito",
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Nombre del hábito") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = emoji,
+                    onValueChange = { if (it.length <= 2) emoji = it },
+                    label = { Text("Emoji (opcional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Categoría",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Selector de categorías con chips en 2 columnas
+                val categories = com.example.habittracker.data.model.HabitCategory.values().toList()
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    categories.chunked(2).forEach { rowCategories ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            rowCategories.forEach { category ->
+                                FilterChip(
+                                    selected = selectedCategory == category,
+                                    onClick = { selectedCategory = category },
+                                    label = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(vertical = 2.dp)
+                                        ) {
+                                            Text(category.emoji, fontSize = 14.sp)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = category.displayName,
+                                                fontSize = 11.sp,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = category.color.copy(alpha = 0.3f),
+                                        selectedLabelColor = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            // Añadir espacio si solo hay un chip en la fila
+                            if (rowCategories.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (name.isNotBlank()) {
+                        onConfirm(
+                            name.trim(),
+                            emoji.trim(),
+                            selectedCategory.displayName,
+                            com.example.habittracker.data.model.HabitCategory.getColorHex(selectedCategory)
+                        )
+                    }
+                },
+                enabled = name.isNotBlank()
+            ) {
+                Text("Guardar", color = MaterialTheme.colorScheme.primary)
             }
         },
         dismissButton = {

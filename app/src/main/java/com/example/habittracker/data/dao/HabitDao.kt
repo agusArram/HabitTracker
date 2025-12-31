@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface HabitDao {
-    @Query("SELECT * FROM habits ORDER BY createdAt ASC")
+    @Query("SELECT * FROM habits ORDER BY orderPosition ASC, createdAt ASC")
     fun getAllHabits(): Flow<List<Habit>>
 
     @Query("SELECT * FROM habits WHERE id = :habitId")
