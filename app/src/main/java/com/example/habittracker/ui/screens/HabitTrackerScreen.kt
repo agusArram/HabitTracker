@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import sh.calvin.reorderable.ReorderableItem
-import sh.calvin.reorderable.rememberReorderableLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -19,7 +17,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -283,15 +280,6 @@ fun HabitGrid(
     onReorder: (List<com.example.habittracker.data.entity.Habit>) -> Unit
 ) {
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-    var habitsList by remember(habits) { mutableStateOf(habits) }
-    val lazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
-
-    val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
-        habitsList = habitsList.toMutableList().apply {
-            add(to.index, removeAt(from.index))
-        }
-        onReorder(habitsList.map { it.habit })
-    }
 
     Column(
         modifier = Modifier
@@ -301,47 +289,43 @@ fun HabitGrid(
         DayHeaders(daysInWeek)
 
         LazyColumn(
-            state = lazyListState,
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            items(habitsList.size, key = { habitsList[it].habit.id }) { index ->
-                ReorderableItem(reorderableLazyListState, key = habitsList[index].habit.id) { isDragging ->
-                    val habitWithProgress = habitsList[index]
-                    var showEditDialog by remember { mutableStateOf(false) }
+            items(habits, key = { it.habit.id }) { habitWithProgress ->
+                var showEditDialog by remember { mutableStateOf(false) }
 
-                    HabitRow(
+                HabitRow(
+                    habit = habitWithProgress.habit,
+                    daysInWeek = daysInWeek,
+                    logs = habitWithProgress.logs,
+                    currentStreak = habitWithProgress.currentStreak,
+                    bestStreak = habitWithProgress.bestStreak,
+                    onDayClick = { date ->
+                        onDayClick(habitWithProgress.habit.id, date.format(dateFormatter))
+                    },
+                    onDelete = { onDeleteHabit(habitWithProgress.habit) },
+                    onLongClick = { showEditDialog = true },
+                    isDragging = false
+                )
+
+                if (showEditDialog) {
+                    EditHabitDialog(
                         habit = habitWithProgress.habit,
-                        daysInWeek = daysInWeek,
-                        logs = habitWithProgress.logs,
-                        currentStreak = habitWithProgress.currentStreak,
-                        bestStreak = habitWithProgress.bestStreak,
-                        onDayClick = { date ->
-                            onDayClick(habitWithProgress.habit.id, date.format(dateFormatter))
-                        },
-                        onDelete = { onDeleteHabit(habitWithProgress.habit) },
-                        onLongClick = { showEditDialog = true },
-                        isDragging = isDragging
-                    )
-
-                    if (showEditDialog) {
-                        EditHabitDialog(
-                            habit = habitWithProgress.habit,
-                            onDismiss = { showEditDialog = false },
-                            onConfirm = { name, emoji, category, color, weekDays ->
-                                onEditHabit(
-                                    habitWithProgress.habit.copy(
-                                        name = name,
-                                        emoji = emoji,
-                                        category = category,
-                                        color = color,
-                                        weekDays = weekDays
-                                    )
+                        onDismiss = { showEditDialog = false },
+                        onConfirm = { name, emoji, category, color, weekDays ->
+                            onEditHabit(
+                                habitWithProgress.habit.copy(
+                                    name = name,
+                                    emoji = emoji,
+                                    category = category,
+                                    color = color,
+                                    weekDays = weekDays
                                 )
-                                showEditDialog = false
-                            }
-                        )
-                    }
+                            )
+                            showEditDialog = false
+                        }
+                    )
                 }
             }
         }
@@ -428,14 +412,16 @@ fun HabitRow(
         elevation = CardDefaults.cardElevation(defaultElevation = elevation)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Indicador de color de categoría
             Box(
                 modifier = Modifier
                     .width(4.dp)
-                    .height(56.dp)
+                    .fillMaxHeight()
                     .background(
                         try {
                             Color(android.graphics.Color.parseColor(habit.color))
@@ -471,9 +457,10 @@ fun HabitRow(
                 Column(modifier = Modifier.weight(1f, fill = false)) {
                     Text(
                         text = habit.name,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
-                        maxLines = 1,
+                        maxLines = 2,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     // Mostrar racha
