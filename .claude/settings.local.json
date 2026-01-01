@@ -11,7 +11,8 @@
       "Bash(cmd /c \"dir C:\\\\ /B /AD | findstr /i graal\")",
       "Bash(ls:*)",
       "WebFetch(domain:arrambidetech.com)",
-      "Bash(\"C:/Users/arram/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk)"
+      "Bash(\"C:/Users/arram/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk)",
+      "Bash(gradlew.bat assembleDebug:*)"
     ]
   }
 }

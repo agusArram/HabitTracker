@@ -121,7 +121,10 @@ class HabitViewModel(
         if (habits.isEmpty()) {
             WeekProgress(0, 0, 0f)
         } else {
-            val totalPossible = habits.size * 7 // 7 días por semana
+            // Contar solo los días activos de cada hábito
+            val totalPossible = habits.sumOf { habitWithProgress ->
+                habitWithProgress.habit.weekDays.count { it == '1' }
+            }
             val completed = habits.sumOf { habit ->
                 habit.logs.count { it.value }
             }
@@ -150,8 +153,19 @@ class HabitViewModel(
             if (habits.isEmpty()) {
                 MonthProgress(0, 0, 0f)
             } else {
-                val totalDays = month.lengthOfMonth()
-                val totalPossible = habits.size * totalDays
+                // Contar días posibles basado en los días activos de cada hábito
+                val totalPossible = habits.sumOf { habit ->
+                    var count = 0
+                    var currentDate = monthStart
+                    while (!currentDate.isAfter(monthEnd)) {
+                        val dayOfWeek = currentDate.dayOfWeek.value % 7 // 0=Lun, 6=Dom
+                        if (habit.weekDays.getOrNull(dayOfWeek) == '1') {
+                            count++
+                        }
+                        currentDate = currentDate.plusDays(1)
+                    }
+                    count
+                }
                 val completed = monthLogs.count { it.completed }
 
                 MonthProgress(
@@ -167,14 +181,15 @@ class HabitViewModel(
         initialValue = MonthProgress(0, 0, 0f)
     )
 
-    fun addHabit(name: String, emoji: String, category: String, color: String) {
+    fun addHabit(name: String, emoji: String, category: String, color: String, weekDays: String = "1111111") {
         viewModelScope.launch {
             repository.insertHabit(
                 Habit(
                     name = name,
                     emoji = emoji,
                     category = category,
-                    color = color
+                    color = color,
+                    weekDays = weekDays
                 )
             )
         }

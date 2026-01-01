@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -117,6 +118,9 @@ fun HabitTrackerScreen(
                     },
                     onEditHabit = { habit ->
                         viewModel.updateHabit(habit)
+                    },
+                    onReorder = { reorderedHabits ->
+                        viewModel.updateHabitsOrder(reorderedHabits)
                     }
                 )
             }
@@ -126,8 +130,8 @@ fun HabitTrackerScreen(
     if (showAddDialog) {
         AddHabitDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, emoji, category, color ->
-                viewModel.addHabit(name, emoji, category, color)
+            onConfirm = { name, emoji, category, color, weekDays ->
+                viewModel.addHabit(name, emoji, category, color, weekDays)
                 showAddDialog = false
             }
         )
@@ -275,9 +279,19 @@ fun HabitGrid(
     daysInWeek: List<LocalDate>,
     onDayClick: (Long, String) -> Unit,
     onDeleteHabit: (com.example.habittracker.data.entity.Habit) -> Unit,
-    onEditHabit: (com.example.habittracker.data.entity.Habit) -> Unit
+    onEditHabit: (com.example.habittracker.data.entity.Habit) -> Unit,
+    onReorder: (List<com.example.habittracker.data.entity.Habit>) -> Unit
 ) {
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    var habitsList by remember(habits) { mutableStateOf(habits) }
+    val lazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        habitsList = habitsList.toMutableList().apply {
+            add(to.index, removeAt(from.index))
+        }
+        onReorder(habitsList.map { it.habit })
+    }
 
     Column(
         modifier = Modifier
@@ -287,41 +301,47 @@ fun HabitGrid(
         DayHeaders(daysInWeek)
 
         LazyColumn(
+            state = lazyListState,
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            items(habits) { habitWithProgress ->
-                var showEditDialog by remember { mutableStateOf(false) }
+            items(habitsList.size, key = { habitsList[it].habit.id }) { index ->
+                ReorderableItem(reorderableLazyListState, key = habitsList[index].habit.id) { isDragging ->
+                    val habitWithProgress = habitsList[index]
+                    var showEditDialog by remember { mutableStateOf(false) }
 
-                HabitRow(
-                    habit = habitWithProgress.habit,
-                    daysInWeek = daysInWeek,
-                    logs = habitWithProgress.logs,
-                    currentStreak = habitWithProgress.currentStreak,
-                    bestStreak = habitWithProgress.bestStreak,
-                    onDayClick = { date ->
-                        onDayClick(habitWithProgress.habit.id, date.format(dateFormatter))
-                    },
-                    onDelete = { onDeleteHabit(habitWithProgress.habit) },
-                    onLongClick = { showEditDialog = true }
-                )
-
-                if (showEditDialog) {
-                    EditHabitDialog(
+                    HabitRow(
                         habit = habitWithProgress.habit,
-                        onDismiss = { showEditDialog = false },
-                        onConfirm = { name, emoji, category, color ->
-                            onEditHabit(
-                                habitWithProgress.habit.copy(
-                                    name = name,
-                                    emoji = emoji,
-                                    category = category,
-                                    color = color
-                                )
-                            )
-                            showEditDialog = false
-                        }
+                        daysInWeek = daysInWeek,
+                        logs = habitWithProgress.logs,
+                        currentStreak = habitWithProgress.currentStreak,
+                        bestStreak = habitWithProgress.bestStreak,
+                        onDayClick = { date ->
+                            onDayClick(habitWithProgress.habit.id, date.format(dateFormatter))
+                        },
+                        onDelete = { onDeleteHabit(habitWithProgress.habit) },
+                        onLongClick = { showEditDialog = true },
+                        isDragging = isDragging
                     )
+
+                    if (showEditDialog) {
+                        EditHabitDialog(
+                            habit = habitWithProgress.habit,
+                            onDismiss = { showEditDialog = false },
+                            onConfirm = { name, emoji, category, color, weekDays ->
+                                onEditHabit(
+                                    habitWithProgress.habit.copy(
+                                        name = name,
+                                        emoji = emoji,
+                                        category = category,
+                                        color = color,
+                                        weekDays = weekDays
+                                    )
+                                )
+                                showEditDialog = false
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -392,21 +412,20 @@ fun HabitRow(
     bestStreak: Int,
     onDayClick: (LocalDate) -> Unit,
     onDelete: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    isDragging: Boolean = false
 ) {
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    val elevation = if (isDragging) 8.dp else 1.dp
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp, horizontal = 8.dp)
-            .combinedClickable(
-                onClick = {},
-                onLongClick = onLongClick
-            ),
+            .padding(vertical = 2.dp, horizontal = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
-        )
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -435,7 +454,12 @@ fun HabitRow(
                 // Hábito info
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.width(120.dp)
+                    modifier = Modifier
+                        .width(120.dp)
+                        .combinedClickable(
+                            onClick = {},
+                            onLongClick = onLongClick
+                        )
                 ) {
                 if (habit.emoji.isNotEmpty()) {
                     Text(
@@ -499,14 +523,16 @@ fun HabitRow(
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                daysInWeek.forEach { date ->
+                daysInWeek.forEachIndexed { index, date ->
                     val dateString = date.format(dateFormatter)
                     val isCompleted = logs[dateString] ?: false
+                    val isDayEnabled = habit.weekDays.getOrNull(index) == '1'
 
                     DayCell(
                         isCompleted = isCompleted,
-                        onClick = { onDayClick(date) },
-                        modifier = Modifier.weight(1f)
+                        onClick = { if (isDayEnabled) onDayClick(date) },
+                        modifier = Modifier.weight(1f),
+                        isEnabled = isDayEnabled
                     )
                 }
             }
@@ -519,33 +545,51 @@ fun HabitRow(
 fun DayCell(
     isCompleted: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isEnabled: Boolean = true
 ) {
+    val backgroundColor = when {
+        !isEnabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        isCompleted -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+
+    val borderColor = when {
+        !isEnabled -> MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+        isCompleted -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+    }
+
     Box(
         modifier = modifier
             .aspectRatio(1f)
             .padding(2.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isCompleted) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.surfaceVariant
-            )
+            .background(backgroundColor)
             .border(
-                width = 2.dp,
-                color = if (isCompleted) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                width = if (isEnabled) 2.dp else 1.dp,
+                color = borderColor,
                 shape = RoundedCornerShape(8.dp)
             )
-            .clickable(onClick = onClick),
+            .then(if (isEnabled) Modifier.clickable(onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center
     ) {
-        if (isCompleted) {
-            Text(
-                text = "✓",
-                color = MaterialTheme.colorScheme.onPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
+        when {
+            !isEnabled -> {
+                Text(
+                    text = "−",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                    fontSize = 14.sp
+                )
+            }
+            isCompleted -> {
+                Text(
+                    text = "✓",
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
@@ -581,12 +625,12 @@ fun EmptyState() {
 @Composable
 fun AddHabitDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String, String, String, String) -> Unit // name, emoji, category, color
+    onConfirm: (String, String, String, String, String) -> Unit // name, emoji, category, color, weekDays
 ) {
     var name by remember { mutableStateOf("") }
     var emoji by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(com.example.habittracker.data.model.HabitCategory.PERSONAL) }
-    var expanded by remember { mutableStateOf(false) }
+    var selectedDays by remember { mutableStateOf(listOf(false, false, false, false, false, false, false)) } // Ninguno por defecto
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -674,17 +718,53 @@ fun AddHabitDialog(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Días de la semana",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Selector de días de la semana
+                val dayNames = listOf("L", "M", "M", "J", "V", "S", "D")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    dayNames.forEachIndexed { index, dayName ->
+                        FilterChip(
+                            selected = selectedDays[index],
+                            onClick = {
+                                selectedDays = selectedDays.toMutableList().also {
+                                    it[index] = !it[index]
+                                }
+                            },
+                            label = { Text(dayName, fontSize = 12.sp) },
+                            modifier = Modifier.weight(1f).padding(horizontal = 2.dp)
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
                     if (name.isNotBlank()) {
+                        // Si no seleccionó ningún día, asumir todos los días
+                        val finalDays = if (selectedDays.none { it }) {
+                            "1111111" // Todos los días
+                        } else {
+                            selectedDays.joinToString("") { if (it) "1" else "0" }
+                        }
                         onConfirm(
                             name.trim(),
                             emoji.trim(),
                             selectedCategory.displayName,
-                            com.example.habittracker.data.model.HabitCategory.getColorHex(selectedCategory)
+                            com.example.habittracker.data.model.HabitCategory.getColorHex(selectedCategory),
+                            finalDays
                         )
                     }
                 },
@@ -706,7 +786,7 @@ fun AddHabitDialog(
 fun EditHabitDialog(
     habit: com.example.habittracker.data.entity.Habit,
     onDismiss: () -> Unit,
-    onConfirm: (String, String, String, String) -> Unit // name, emoji, category, color
+    onConfirm: (String, String, String, String, String) -> Unit // name, emoji, category, color, weekDays
 ) {
     var name by remember { mutableStateOf(habit.name) }
     var emoji by remember { mutableStateOf(habit.emoji) }
@@ -714,6 +794,9 @@ fun EditHabitDialog(
         mutableStateOf(
             com.example.habittracker.data.model.HabitCategory.fromString(habit.category)
         )
+    }
+    var selectedDays by remember {
+        mutableStateOf(habit.weekDays.map { it == '1' })
     }
 
     AlertDialog(
@@ -802,17 +885,53 @@ fun EditHabitDialog(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Días de la semana",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Selector de días de la semana
+                val dayNames = listOf("L", "M", "M", "J", "V", "S", "D")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    dayNames.forEachIndexed { index, dayName ->
+                        FilterChip(
+                            selected = selectedDays[index],
+                            onClick = {
+                                selectedDays = selectedDays.toMutableList().also {
+                                    it[index] = !it[index]
+                                }
+                            },
+                            label = { Text(dayName, fontSize = 12.sp) },
+                            modifier = Modifier.weight(1f).padding(horizontal = 2.dp)
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
                     if (name.isNotBlank()) {
+                        // Si no seleccionó ningún día, asumir todos los días
+                        val finalDays = if (selectedDays.none { it }) {
+                            "1111111" // Todos los días
+                        } else {
+                            selectedDays.joinToString("") { if (it) "1" else "0" }
+                        }
                         onConfirm(
                             name.trim(),
                             emoji.trim(),
                             selectedCategory.displayName,
-                            com.example.habittracker.data.model.HabitCategory.getColorHex(selectedCategory)
+                            com.example.habittracker.data.model.HabitCategory.getColorHex(selectedCategory),
+                            finalDays
                         )
                     }
                 },
