@@ -29,7 +29,6 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "habit_tracker_database"
                 )
-                    .fallbackToDestructiveMigration() // Recrear DB si cambia el esquema
                     .build()
                 INSTANCE = instance
                 instance

@@ -1,3 +1,71 @@
 <resources>
+    <!-- App Name -->
     <string name="app_name">HabitTracker</string>
+    <string name="app_branding">Habit Tracker - ArrambideTech.com</string>
+
+    <!-- General Actions -->
+    <string name="add">Agregar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="delete">Eliminar</string>
+    <string name="save">Guardar</string>
+    <string name="edit">Editar</string>
+
+    <!-- Habit Management -->
+    <string name="add_habit">Agregar Hábito</string>
+    <string name="edit_habit">Editar Hábito</string>
+    <string name="habit_name">Nombre del hábito</string>
+    <string name="emoji_optional">Emoji (opcional)</string>
+    <string name="category">Categoría</string>
+    <string name="week_days">Días de la semana</string>
+
+    <!-- Progress -->
+    <string name="weekly_progress">Progreso Semanal</string>
+    <string name="monthly_progress">Progreso Mensual</string>
+    <string name="progress_format">%1$.1f%% (%2$d/%3$d)</string>
+    <string name="current_streak">%1$d</string>
+    <string name="best_streak_format">(récord: %1$d)</string>
+
+    <!-- Navigation -->
+    <string name="previous_week">Semana anterior</string>
+    <string name="next_week">Semana siguiente</string>
+    <string name="week_range_format">%1$d - %2$d</string>
+
+    <!-- Days of Week (Short) -->
+    <string name="day_monday_short">Lun</string>
+    <string name="day_tuesday_short">Mar</string>
+    <string name="day_wednesday_short">Mié</string>
+    <string name="day_thursday_short">Jue</string>
+    <string name="day_friday_short">Vie</string>
+    <string name="day_saturday_short">Sáb</string>
+    <string name="day_sunday_short">Dom</string>
+
+    <!-- Days of Week (Single Letter) -->
+    <string name="day_monday_letter">L</string>
+    <string name="day_tuesday_letter">M</string>
+    <string name="day_wednesday_letter">M</string>
+    <string name="day_thursday_letter">J</string>
+    <string name="day_friday_letter">V</string>
+    <string name="day_saturday_letter">S</string>
+    <string name="day_sunday_letter">D</string>
+
+    <!-- Categories -->
+    <string name="category_health">Salud</string>
+    <string name="category_learning">Aprendizaje</string>
+    <string name="category_work">Trabajo</string>
+    <string name="category_personal">Personal</string>
+    <string name="category_social">Social</string>
+    <string name="category_creativity">Creatividad</string>
+
+    <!-- Empty State -->
+    <string name="empty_state_title">No hay hábitos aún</string>
+    <string name="empty_state_subtitle">Presiona + para agregar uno</string>
+
+    <!-- Headers -->
+    <string name="header_habit">Hábito</string>
+
+    <!-- Content Descriptions (Accessibility) -->
+    <string name="cd_delete_habit">Eliminar</string>
+    <string name="cd_add_habit">Agregar hábito</string>
+    <string name="cd_previous_week">Semana anterior</string>
+    <string name="cd_next_week">Semana siguiente</string>
 </resources>

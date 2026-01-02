@@ -12,7 +12,13 @@
       "Bash(ls:*)",
       "WebFetch(domain:arrambidetech.com)",
       "Bash(\"C:/Users/arram/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk)",
-      "Bash(gradlew.bat assembleDebug:*)"
+      "Bash(gradlew.bat assembleDebug:*)",
+      "Bash(C:arrambidetechprojectshabittrackergradlew.bat assembleDebug)",
+      "Bash(\"C:\\\\arrambidetechprojects\\\\habittracker\\\\gradlew.bat\" assembleDebug)",
+      "Bash(\"C:\\\\arrambidetechprojects\\\\habittracker\\\\gradlew.bat\" clean assembleDebug)",
+      "Bash(tree:*)",
+      "Bash(cat:*)",
+      "Bash(\"C:\\\\arrambidetechprojects\\\\habittracker\\\\gradlew.bat\" clean build)"
     ]
   }
 }

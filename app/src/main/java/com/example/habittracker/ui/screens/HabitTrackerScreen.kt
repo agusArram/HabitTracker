@@ -36,7 +36,6 @@ import java.time.format.TextStyle
 import java.util.*
 import kotlin.math.abs
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HabitTrackerScreen(
