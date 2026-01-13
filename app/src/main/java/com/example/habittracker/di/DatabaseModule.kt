@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.habittracker.data.dao.DailyLogDao
 import com.example.habittracker.data.dao.HabitDao
+import com.example.habittracker.data.dao.VacationDao
 import com.example.habittracker.data.database.AppDatabase
 import dagger.Module
 import dagger.Provides
@@ -21,11 +22,7 @@ object DatabaseModule {
     fun provideAppDatabase(
         @ApplicationContext context: Context
     ): AppDatabase {
-        return Room.databaseBuilder(
-            context,
-            AppDatabase::class.java,
-            "habit_tracker_database"
-        ).build()
+        return AppDatabase.getDatabase(context)
     }
 
     @Provides
@@ -37,4 +34,9 @@ object DatabaseModule {
     @Singleton
     fun provideDailyLogDao(database: AppDatabase): DailyLogDao =
         database.dailyLogDao()
+
+    @Provides
+    @Singleton
+    fun provideVacationDao(database: AppDatabase): VacationDao =
+        database.vacationDao()
 }
