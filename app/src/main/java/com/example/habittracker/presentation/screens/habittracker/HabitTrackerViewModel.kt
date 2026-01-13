@@ -21,6 +21,7 @@ import javax.inject.Inject
 @HiltViewModel
 class HabitTrackerViewModel @Inject constructor(
     private val getAllHabitsUseCase: GetAllHabitsUseCase,
+    private val getHabitsWithMonthLogsUseCase: GetHabitsWithMonthLogsUseCase,
     private val addHabitUseCase: AddHabitUseCase,
     private val updateHabitUseCase: UpdateHabitUseCase,
     private val deleteHabitUseCase: DeleteHabitUseCase,
@@ -35,6 +36,8 @@ class HabitTrackerViewModel @Inject constructor(
         LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     )
     private val _showAddDialog = MutableStateFlow(false)
+    private val _isReorderMode = MutableStateFlow(false)
+    private val _showSettings = MutableStateFlow(false)
 
     private val habitsWithProgress = _currentWeekStart.flatMapLatest { weekStart ->
         getAllHabitsUseCase(weekStart)
@@ -52,13 +55,57 @@ class HabitTrackerViewModel @Inject constructor(
         initialValue = com.example.habittracker.domain.model.WeekProgress(0, 0, 0f)
     )
 
+    // Get habits with progress for entire month (for monthly progress calculation)
+    private val habitsWithMonthProgress = _currentMonth.flatMapLatest { month ->
+        getHabitsWithMonthLogsUseCase(month)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     private val monthProgress = combine(
         _currentMonth,
-        habitsWithProgress
-    ) { month, habits ->
-        // This would need getAllHabits and logs for the month
-        // Simplified version for now
-        com.example.habittracker.domain.model.MonthProgress(0, 0, 0f)
+        habitsWithMonthProgress
+    ) { month, habitsWithLogs ->
+        if (habitsWithLogs.isEmpty()) {
+            com.example.habittracker.domain.model.MonthProgress(0, 0, 0f)
+        } else {
+            val monthStart = month.atDay(1)
+            val monthEnd = month.atEndOfMonth()
+            
+            // Calculate total possible days for all habits in the month
+            val totalPossible = habitsWithLogs.sumOf { (habit, _) ->
+                var count = 0
+                var currentDate = monthStart
+                while (!currentDate.isAfter(monthEnd)) {
+                    val dayOfWeek = when (currentDate.dayOfWeek.value) {
+                        1 -> habit.weekDays.monday
+                        2 -> habit.weekDays.tuesday
+                        3 -> habit.weekDays.wednesday
+                        4 -> habit.weekDays.thursday
+                        5 -> habit.weekDays.friday
+                        6 -> habit.weekDays.saturday
+                        7 -> habit.weekDays.sunday
+                        else -> false
+                    }
+                    if (dayOfWeek) count++
+                    currentDate = currentDate.plusDays(1)
+                }
+                count
+            }
+            
+            // Count completed days from all habits' logs in month range
+            val completed = habitsWithLogs.sumOf { (_, logs) ->
+                logs.count { (_, isCompleted) -> isCompleted }
+            }
+            
+            com.example.habittracker.domain.model.MonthProgress(
+                totalDays = totalPossible,
+                completedDays = completed,
+                percentage = if (totalPossible > 0) (completed.toFloat() / totalPossible * 100) else 0f
+            )
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -79,10 +126,16 @@ class HabitTrackerViewModel @Inject constructor(
             currentMonth = month,
             currentWeekStart = weekStart,
             daysInWeek = getDaysInWeek(weekStart),
-            showAddDialog = false
+            showAddDialog = false,
+            isReorderMode = false,
+            showSettings = false
         )
     }.combine(_showAddDialog) { state, showDialog ->
         state.copy(showAddDialog = showDialog)
+    }.combine(_isReorderMode) { state, reorderMode ->
+        state.copy(isReorderMode = reorderMode)
+    }.combine(_showSettings) { state, showSettings ->
+        state.copy(showSettings = showSettings)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -144,6 +197,18 @@ class HabitTrackerViewModel @Inject constructor(
 
     fun hideAddDialog() {
         _showAddDialog.value = false
+    }
+
+    fun toggleReorderMode() {
+        _isReorderMode.value = !_isReorderMode.value
+    }
+
+    fun showSettings() {
+        _showSettings.value = true
+    }
+
+    fun hideSettings() {
+        _showSettings.value = false
     }
 
     private fun getDaysInWeek(weekStart: LocalDate): List<LocalDate> {

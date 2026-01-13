@@ -19,5 +19,7 @@ data class HabitTrackerState(
     val daysInWeek: List<LocalDate> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val showAddDialog: Boolean = false
+    val showAddDialog: Boolean = false,
+    val isReorderMode: Boolean = false,
+    val showSettings: Boolean = false
 )

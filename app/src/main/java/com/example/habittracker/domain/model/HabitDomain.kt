@@ -7,7 +7,8 @@ data class HabitDomain(
     val createdAt: Long = System.currentTimeMillis(),
     val category: HabitCategory,
     val weekDays: WeekDaysSchedule,
-    val orderPosition: Int = 0
+    val orderPosition: Int = 0,
+    val isVacationExempt: Boolean = false
 )
 
 data class WeekDaysSchedule(

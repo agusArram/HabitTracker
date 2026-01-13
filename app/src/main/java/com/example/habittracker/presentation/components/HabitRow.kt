@@ -31,7 +31,8 @@ fun HabitRow(
     onDayClick: (LocalDate) -> Unit,
     onDelete: () -> Unit,
     onLongClick: () -> Unit,
-    isDragging: Boolean = false
+    isDragging: Boolean = false,
+    isReorderMode: Boolean = false
 ) {
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     val elevation = if (isDragging) 8.dp else 1.dp
@@ -51,6 +52,16 @@ fun HabitRow(
                 .height(IntrinsicSize.Min),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Drag handle for reorder mode
+            if (isReorderMode) {
+                Text(
+                    text = "☰",
+                    fontSize = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+            }
+            
             // Category color indicator
             Box(
                 modifier = Modifier
@@ -85,6 +96,14 @@ fun HabitRow(
                         Text(
                             text = habit.emoji,
                             fontSize = 24.sp,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                    }
+                    // Vacation mode indicator
+                    if (habit.isVacationExempt) {
+                        Text(
+                            text = "🏖️",
+                            fontSize = 14.sp,
                             modifier = Modifier.padding(end = 4.dp)
                         )
                     }

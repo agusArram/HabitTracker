@@ -15,6 +15,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.habittracker.R
 import com.example.habittracker.presentation.components.*
 import com.example.habittracker.presentation.dialog.AddHabitDialog
+import com.example.habittracker.presentation.dialog.SettingsDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,16 +26,12 @@ fun HabitTrackerScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.showAddDialog() },
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = stringResource(R.string.cd_add_habit),
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
-            }
+            FABMenu(
+                onAddHabit = { viewModel.showAddDialog() },
+                onSettings = { viewModel.showSettings() },
+                onReorderToggle = { viewModel.toggleReorderMode() },
+                isReorderMode = state.isReorderMode
+            )
         }
     ) { padding ->
         Column(
@@ -75,7 +72,8 @@ fun HabitTrackerScreen(
                     onDayClick = { habitId, date -> viewModel.toggleDay(habitId, date) },
                     onDeleteHabit = { habit -> viewModel.deleteHabit(habit) },
                     onEditHabit = { habit -> viewModel.updateHabit(habit) },
-                    onReorder = { habits -> viewModel.reorderHabits(habits) }
+                    onReorder = { habits -> viewModel.reorderHabits(habits) },
+                    isReorderMode = state.isReorderMode
                 )
             }
         }
@@ -85,6 +83,12 @@ fun HabitTrackerScreen(
         AddHabitDialog(
             onDismiss = { viewModel.hideAddDialog() },
             onConfirm = { habit -> viewModel.addHabit(habit) }
+        )
+    }
+
+    if (state.showSettings) {
+        SettingsDialog(
+            onDismiss = { viewModel.hideSettings() }
         )
     }
 }

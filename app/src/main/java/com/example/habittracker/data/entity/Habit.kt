@@ -14,5 +14,6 @@ data class Habit(
     val category: String = "Personal", // Categoría del hábito
     val color: String = "#38bdf8", // Color de la categoría
     val orderPosition: Int = 0, // Posición para ordenar
-    val weekDays: String = "1111111" // Días de la semana: LMMJVSD (1=activo, 0=inactivo)
+    val weekDays: String = "1111111", // Días de la semana: LMMJVSD (1=activo, 0=inactivo)
+    val isVacationExempt: Boolean = false // Si mantiene racha en modo vacaciones
 )

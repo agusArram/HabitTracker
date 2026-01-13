@@ -13,7 +13,8 @@ object HabitMapper {
         createdAt = entity.createdAt,
         category = HabitCategory.fromName(entity.category),
         weekDays = WeekDaysSchedule.fromString(entity.weekDays),
-        orderPosition = entity.orderPosition
+        orderPosition = entity.orderPosition,
+        isVacationExempt = entity.isVacationExempt
     )
 
     fun toEntity(domain: HabitDomain): Habit = Habit(
@@ -24,7 +25,8 @@ object HabitMapper {
         category = domain.category.name,
         color = domain.category.colorHex,
         orderPosition = domain.orderPosition,
-        weekDays = domain.weekDays.toStorageString()
+        weekDays = domain.weekDays.toStorageString(),
+        isVacationExempt = domain.isVacationExempt
     )
 
     fun toDomainList(entities: List<Habit>): List<HabitDomain> =

@@ -33,6 +33,7 @@ fun AddHabitDialog(
     var selectedCategory by remember { mutableStateOf(HabitCategory.PERSONAL) }
     var weekDays by remember { mutableStateOf(WeekDaysSchedule.noDays()) }
     var userTouchedDays by remember { mutableStateOf(false) }
+    var isVacationExempt by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -198,6 +199,25 @@ fun AddHabitDialog(
                         }
                     }
                 }
+
+                // Modo vacaciones
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isVacationExempt = !isVacationExempt }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Checkbox(
+                        checked = isVacationExempt,
+                        onCheckedChange = { isVacationExempt = it }
+                    )
+                    Text(
+                        text = "Mantener racha en vacaciones",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         },
         confirmButton = {
@@ -216,7 +236,8 @@ fun AddHabitDialog(
                                 name = name,
                                 emoji = emoji,
                                 category = selectedCategory,
-                                weekDays = finalWeekDays
+                                weekDays = finalWeekDays,
+                                isVacationExempt = isVacationExempt
                             )
                         )
                     }
